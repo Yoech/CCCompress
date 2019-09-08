@@ -23,7 +23,7 @@
         <entry file="file://$PROJECT_DIR$/cccompress/cccompress.go">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="190">
-              <caret line="10" lean-forward="true" selection-end-line="331" />
+              <caret line="10" selection-end-line="331" />
               <folding>
                 <element signature="e#20#115#0" expanded="true" />
               </folding>
@@ -46,8 +46,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/main.go">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="266">
-              <caret line="66" column="22" lean-forward="true" selection-start-line="66" selection-start-column="22" selection-end-line="66" selection-end-column="22" />
+            <state relative-caret-position="247">
+              <caret line="21" column="81" lean-forward="true" selection-start-line="21" selection-start-column="81" selection-end-line="21" selection-end-column="81" />
               <folding>
                 <element signature="e#20#43#0" expanded="true" />
               </folding>
@@ -150,7 +150,7 @@
       <module name="CCCompress" />
       <working_directory value="E:\Tools\GOPATH\src\github.com\Yoech\CCCompress" />
       <go_parameters value="-i" />
-      <parameters value="-d -m=2 -t=&quot;./mzitu.com&quot; -k=&quot;suckmydick.motherfucker&quot;" />
+      <parameters value="-c -m=2 -t=&quot;./mm3&quot; -k=&quot;suckmydick.motherfucker&quot;" />
       <kind value="DIRECTORY" />
       <filePath value="E:\Tools\GOPATH\src\github.com\Yoech\CCCompress" />
       <package value="github.com/Yoech/CCCompress" />
@@ -169,12 +169,12 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1567921702253</updated>
-      <workItem from="1567921703502" duration="15663000" />
+      <workItem from="1567921703502" duration="17125000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="15663000" />
+    <option name="totallyTimeSpent" value="17125000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1936" height="1066" extended-state="6" />
@@ -244,7 +244,7 @@
     <entry file="file://$PROJECT_DIR$/cccompress/cccompress.go">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="190">
-          <caret line="10" lean-forward="true" selection-end-line="331" />
+          <caret line="10" selection-end-line="331" />
           <folding>
             <element signature="e#20#115#0" expanded="true" />
           </folding>
@@ -253,8 +253,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/main.go">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="266">
-          <caret line="66" column="22" lean-forward="true" selection-start-line="66" selection-start-column="22" selection-end-line="66" selection-end-column="22" />
+        <state relative-caret-position="247">
+          <caret line="21" column="81" lean-forward="true" selection-start-line="21" selection-start-column="81" selection-end-line="21" selection-end-column="81" />
           <folding>
             <element signature="e#20#43#0" expanded="true" />
           </folding>
