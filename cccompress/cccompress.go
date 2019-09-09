@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/Yoech/CCCompress/ccutility"
+	"math"
 	"os"
 	"strings"
+	"sync"
 )
 
 var cccompressFormat = [...]byte{0x00, 0x00, 0x43, 0x43}
@@ -64,7 +66,7 @@ func (p *TagCCHeaderInfo) IsValid() bool {
 }
 
 // Compress .
-func Compress(key string, src [] byte, compressMode byte) (ret []byte, err error) {
+func Compress(key string, src []byte, compressMode byte) (ret []byte, err error) {
 	if src == nil {
 		return nil, fmt.Errorf("Compress[%v].src nil", key)
 	}
@@ -155,7 +157,7 @@ func Compress(key string, src [] byte, compressMode byte) (ret []byte, err error
 }
 
 // Decompress .
-func Decompress(key string, src [] byte) (header *TagCCHeaderInfo, ret []byte, err error) {
+func Decompress(key string, src []byte) (header *TagCCHeaderInfo, ret []byte, err error) {
 	if src == nil {
 		return nil, nil, fmt.Errorf("Decompress[%v].src.nil", key)
 	}
@@ -299,33 +301,90 @@ func DecompressFile(filePath string, key string, bOverWrite bool) (dlen int64, e
 }
 
 // CompressFolders .
-func CompressFolders(folders string, ext string, key string, compressMode int, bOverWrite bool) (total int64, err error) {
+func CompressFolders(folders string, ext string, key string, compressMode int, bOverWrite bool, iWorkerNum int) (successed int64, err error) {
 	var allFile []string
 	allFile, err = ccutility.GetAllFileByExt(folders, ext, allFile)
 	if err != nil {
 		return 0, err
 	}
-	total = 0
-	for _, v := range allFile {
-		if _, err = CompressFile(v, key, compressMode, bOverWrite); err == nil {
-			total++
-		}
+
+	successed = 0
+
+	total := len(allFile)
+	pagePerCPU := 1
+
+	if total > iWorkerNum {
+		f := math.Ceil(float64(total) / float64(iWorkerNum))
+		pagePerCPU = ccutility.Round(f)
+	} else {
+		iWorkerNum = total
+		pagePerCPU = 1
 	}
-	return total, err
+
+	ch := make(chan int, iWorkerNum)
+	var wg = &sync.WaitGroup{}
+	var lock = new(sync.RWMutex)
+
+	for i := 0; i < iWorkerNum; i++ {
+		wg.Add(1)
+		go func(ch <-chan int, wg *sync.WaitGroup, i int, t int, p int, f []string, k string, m int, w bool) {
+			defer wg.Done()
+			for idx := i * p; idx < (i+1)*p; idx++ {
+				if idx >= t {
+					break
+				}
+				if _, err = CompressFile(f[idx], k, m, w); err == nil {
+					lock.Lock()
+					successed++
+					lock.Unlock()
+				}
+			}
+		}(ch, wg, i, total, pagePerCPU, allFile, key, compressMode, bOverWrite)
+	}
+	wg.Wait()
+	return successed, err
 }
 
 // DecompressFolders .
-func DecompressFolders(folders string, ext string, key string, bOverWrite bool) (total int64, err error) {
+func DecompressFolders(folders string, ext string, key string, bOverWrite bool, iWorkerNum int) (successed int64, err error) {
 	var allFile []string
 	allFile, err = ccutility.GetAllFileByExt(folders, ext, allFile)
 	if err != nil {
 		return 0, err
 	}
-	total = 0
-	for _, v := range allFile {
-		if _, err = DecompressFile(v, key, bOverWrite); err == nil {
-			total++
-		}
+	successed = 0
+
+	total := len(allFile)
+	pagePerCPU := 1
+
+	if total > iWorkerNum {
+		f := math.Ceil(float64(total) / float64(iWorkerNum))
+		pagePerCPU = ccutility.Round(f)
+	} else {
+		iWorkerNum = total
+		pagePerCPU = 1
 	}
-	return total, err
+
+	ch := make(chan int, iWorkerNum)
+	var wg = &sync.WaitGroup{}
+	var lock = new(sync.RWMutex)
+
+	for i := 0; i < iWorkerNum; i++ {
+		wg.Add(1)
+		go func(ch <-chan int, wg *sync.WaitGroup, i int, t int, p int, f []string, k string, w bool) {
+			defer wg.Done()
+			for idx := i * p; idx < (i+1)*p; idx++ {
+				if idx >= t {
+					break
+				}
+				if _, err = DecompressFile(f[idx], k, w); err == nil {
+					lock.Lock()
+					successed++
+					lock.Unlock()
+				}
+			}
+		}(ch, wg, i, total, pagePerCPU, allFile, key, bOverWrite)
+	}
+	wg.Wait()
+	return successed, err
 }

@@ -12,6 +12,7 @@ var bCompress bool
 var bDecompress bool
 var bOverWrite bool
 var iMode int
+var iWorkerNum int
 var sTarget string
 var sExt string
 var sKey string
@@ -21,6 +22,7 @@ func init() {
 	flag.BoolVar(&bDecompress, "d", false, "Decompress")
 	flag.BoolVar(&bOverWrite, "w", false, "Overwrite origin files,otherwise rename origin files to .bak")
 	flag.IntVar(&iMode, "m", cccompress.Uncompressed, "Compress/Decompress mode")
+	flag.IntVar(&iWorkerNum, "n", 10, "Number of workers when compress/decompress folders")
 	flag.StringVar(&sTarget, "t", "", "Target path")
 	flag.StringVar(&sExt, "e", "", "Ext")
 	flag.StringVar(&sKey, "k", "", "Obfuscation key")
@@ -61,9 +63,9 @@ func main() {
 
 	if fi.IsDir() {
 		if bCompress {
-			total, err = cccompress.CompressFolders(sTarget, sExt, sKey, iMode, bOverWrite)
+			total, err = cccompress.CompressFolders(sTarget, sExt, sKey, iMode, bOverWrite, iWorkerNum)
 		} else {
-			total, err = cccompress.DecompressFolders(sTarget, sExt, sKey, bOverWrite)
+			total, err = cccompress.DecompressFolders(sTarget, sExt, sKey, bOverWrite, iWorkerNum)
 		}
 	} else {
 		if bCompress {
