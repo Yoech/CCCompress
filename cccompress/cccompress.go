@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/Yoech/CCCompress/ccutility"
+	"log"
 	"math"
 	"os"
 	"strings"
@@ -83,6 +84,12 @@ func Compress(key string, src []byte, compressMode byte) (ret []byte, err error)
 		return nil, fmt.Errorf("Compress[%v].length less", key)
 	}
 
+	// if the header format is correct, we ignore it
+	header, err := getHeader(src)
+	if err == nil {
+		return nil, fmt.Errorf("Compress[%v].header exists.ignore it", key)
+	}
+
 	var dst []byte
 	switch compressMode {
 	case GZip:
@@ -137,7 +144,7 @@ func Compress(key string, src []byte, compressMode byte) (ret []byte, err error)
 	}
 
 	// make header
-	header := &TagCCHeaderInfo{
+	header = &TagCCHeaderInfo{
 		Format:       cccompressFormat,
 		CompressMode: [...]byte{compressMode},
 	}
@@ -173,6 +180,7 @@ func Decompress(key string, src []byte) (header *TagCCHeaderInfo, ret []byte, er
 		return nil, nil, fmt.Errorf("Decompress[%v].length less", key)
 	}
 
+	// if the header format isn't correct, we ignore it
 	header, err = getHeader(src)
 	if err != nil {
 		return nil, nil, err
@@ -255,7 +263,7 @@ func getHeader(src []byte) (header *TagCCHeaderInfo, err error) {
 	}
 
 	if !header.IsValid() {
-		return nil, fmt.Errorf("getHeader.header.IsValid")
+		return nil, fmt.Errorf("getHeader.header.IsValid.false")
 	}
 
 	l := ccutility.BytesToInt64(header.CompressedLen[:])
@@ -276,7 +284,7 @@ func CompressFile(filePath string, key string, compressMode int, bOverWrite bool
 	}
 	dst, err := Compress(key, src, byte(compressMode))
 	if err != nil {
-		return 0, fmt.Errorf("DecompressFile[%v].Decompress.err[%v]", filePath, err)
+		return 0, fmt.Errorf("CompressFile[%v].Compress.err[%v]", filePath, err)
 	}
 	if !bOverWrite {
 		os.Rename(filePath, filePath+".bak")
@@ -337,6 +345,8 @@ func CompressFolders(folders string, ext string, key string, compressMode int, b
 					lock.Lock()
 					successed++
 					lock.Unlock()
+				} else {
+					log.Printf("f[%v].err=%v", f[idx], err)
 				}
 			}
 		}(ch, wg, i, total, pagePerCPU, allFile, key, compressMode, bOverWrite)
