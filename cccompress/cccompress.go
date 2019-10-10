@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/Yoech/CCCompress/ccutility"
-	"log"
 	"math"
 	"os"
 	"strings"
@@ -345,8 +344,6 @@ func CompressFolders(folders string, ext string, key string, compressMode int, b
 					lock.Lock()
 					successed++
 					lock.Unlock()
-				} else {
-					log.Printf("f[%v].err=%v", f[idx], err)
 				}
 			}
 		}(ch, wg, i, total, pagePerCPU, allFile, key, compressMode, bOverWrite)
