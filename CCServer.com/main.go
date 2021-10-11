@@ -1,21 +1,23 @@
 package main
 
 import (
+	"CCServer.com/cccompress"
 	"flag"
-	"github.com/Yoech/CCCompress/cccompress"
 	"log"
 	"os"
 	"time"
 )
 
-var bCompress bool
-var bDecompress bool
-var bOverWrite bool
-var iMode int
-var iWorkerNum int
-var sTarget string
-var sExt string
-var sKey string
+var (
+	bCompress   bool
+	bDecompress bool
+	bOverWrite  bool
+	iMode       int
+	iWorkerNum  int
+	sTarget     string
+	sExt        string
+	sKey        string
+)
 
 func init() {
 	flag.BoolVar(&bCompress, "c", false, "Compress")
@@ -33,7 +35,7 @@ func init() {
 // useAge .
 func useAge() {
 	cmdStr := "\n*****************************************\n"
-	cmdStr += "Useage:\n"
+	cmdStr += "Usage:\n"
 	cmdStr += "*****************************************\n"
 	log.Printf(cmdStr)
 

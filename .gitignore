@@ -1,3 +1,2 @@
-
-*.xml
-CCCompress.exe
+/bin/
+/.idea/

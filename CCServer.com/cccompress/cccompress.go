@@ -1,18 +1,18 @@
 package cccompress
 
 import (
+	"CCServer.com/ccutility"
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/Yoech/CCCompress/ccutility"
 	"math"
 	"os"
 	"strings"
 	"sync"
 )
 
-var cccompressFormat = [...]byte{0x00, 0x00, 0x43, 0x43}
-var cccompressVersion = []byte{'1', '0', '1', '0', '9', '0', '5'}
+var CCFormat = [...]byte{0x43, 0x2E, 0x43, 0x00}
+var CCVersion = []byte{'1', '0', '1', '0', '9', '0', '5'}
 
 // compressed mode
 const (
@@ -144,10 +144,10 @@ func Compress(key string, src []byte, compressMode byte) (ret []byte, err error)
 
 	// make header
 	header = &TagCCHeaderInfo{
-		Format:       cccompressFormat,
+		Format:       CCFormat,
 		CompressMode: [...]byte{compressMode},
 	}
-	copy(header.Version[:], cccompressVersion)
+	copy(header.Version[:], CCVersion)
 	copy(header.CompressedLen[:], ccutility.Int64ToBytes(int64(len(dst))))
 	copy(header.OriginLen[:], ccutility.Int64ToBytes(int64(sLen)))
 
