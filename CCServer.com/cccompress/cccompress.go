@@ -35,7 +35,7 @@ type TagCCHeaderInfo struct {
 
 // IsValidFormat .
 func IsValidFormat(s []byte) bool {
-	return bytes.Equal(s, []byte{0x00, 0x00, 0x43, 0x43})
+	return bytes.Equal(s, CCFormat[:])
 }
 
 // IsValidCompressMode .
