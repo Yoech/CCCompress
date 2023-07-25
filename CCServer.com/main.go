@@ -67,13 +67,13 @@ func main() {
 		if bCompress {
 			total, err = cccompress.CompressFolders(sTarget, sExt, sKey, iMode, bOverWrite, iWorkerNum)
 		} else {
-			total, err = cccompress.DecompressFolders(sTarget, sExt, sKey, bOverWrite, iWorkerNum)
+			total, err = cccompress.DecompressFolders(sTarget, sExt, sKey, iMode, bOverWrite, iWorkerNum)
 		}
 	} else {
 		if bCompress {
 			total, err = cccompress.CompressFile(sTarget, sKey, iMode, bOverWrite)
 		} else {
-			total, err = cccompress.DecompressFile(sTarget, sKey, bOverWrite)
+			total, err = cccompress.DecompressFile(sTarget, sKey, iMode, bOverWrite)
 		}
 	}
 

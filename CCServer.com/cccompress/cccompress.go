@@ -71,23 +71,25 @@ func Compress(key string, src []byte, compressMode byte) (ret []byte, err error)
 		return nil, fmt.Errorf("Compress[%v].src nil", key)
 	}
 
+	Obfuscation := false
+	var header *TagCCHeaderInfo
+	var x, y int
 	a := strings.Split(key, ".")
-	if len(a) < 2 {
-		return nil, fmt.Errorf("Compress[%v].Split less", key)
+	if len(a) == 2 {
+		//return nil, fmt.Errorf("Compress[%v].Split less", key)
+		x = len(a[0])
+		y = len(a[1])
+		if x < 0 || y < 0 {
+			return nil, fmt.Errorf("Compress[%v].length less", key)
+		}
+		// if the header format is correct, we ignore it
+		header, err = getHeader(src)
+		if err == nil {
+			return nil, fmt.Errorf("Compress[%v].header exists.ignore it", key)
+		}
+		Obfuscation = true
 	}
-	x := len(a[0])
-	y := len(a[1])
 	sLen := len(src)
-
-	if x < 0 || y < 0 {
-		return nil, fmt.Errorf("Compress[%v].length less", key)
-	}
-
-	// if the header format is correct, we ignore it
-	header, err := getHeader(src)
-	if err == nil {
-		return nil, fmt.Errorf("Compress[%v].header exists.ignore it", key)
-	}
 
 	var dst []byte
 	switch compressMode {
@@ -121,40 +123,43 @@ func Compress(key string, src []byte, compressMode byte) (ret []byte, err error)
 		copy(dst, src)
 	}
 
-	total := len(dst)
-	if total > 848 {
-		total = 848
-	}
-
-	m, n := 0, 0
-	for i := 0; i < total/2; i++ {
-		dst[i*2] ^= a[0][m]
-		dst[i*2+1] ^= a[1][n]
-		if m < (x - 1) {
-			m++
-		} else {
-			m = 0
-		}
-		if n < (y - 1) {
-			n++
-		} else {
-			n = 0
-		}
-	}
-
-	// make header
-	header = &TagCCHeaderInfo{
-		Format:       CCFormat,
-		CompressMode: [...]byte{compressMode},
-	}
-	copy(header.Version[:], CCVersion)
-	copy(header.CompressedLen[:], ccutility.Int64ToBytes(int64(len(dst))))
-	copy(header.OriginLen[:], ccutility.Int64ToBytes(int64(sLen)))
-
 	buf := new(bytes.Buffer)
-	if err = binary.Write(buf, binary.LittleEndian, header); err != nil {
-		return nil, fmt.Errorf("Compress[%v].binary.Write.err[%v]", key, err)
+	if Obfuscation {
+		total := len(dst)
+		if total > 848 {
+			total = 848
+		}
+
+		m, n := 0, 0
+		for i := 0; i < total/2; i++ {
+			dst[i*2] ^= a[0][m]
+			dst[i*2+1] ^= a[1][n]
+			if m < (x - 1) {
+				m++
+			} else {
+				m = 0
+			}
+			if n < (y - 1) {
+				n++
+			} else {
+				n = 0
+			}
+		}
+
+		// make header
+		header = &TagCCHeaderInfo{
+			Format:       CCFormat,
+			CompressMode: [...]byte{compressMode},
+		}
+		copy(header.Version[:], CCVersion)
+		copy(header.CompressedLen[:], ccutility.Int64ToBytes(int64(len(dst))))
+		copy(header.OriginLen[:], ccutility.Int64ToBytes(int64(sLen)))
+
+		if err = binary.Write(buf, binary.LittleEndian, header); err != nil {
+			return nil, fmt.Errorf("Compress[%v].binary.Write.err[%v]", key, err)
+		}
 	}
+
 	if _, err = buf.Write(dst); err != nil {
 		return nil, fmt.Errorf("Compress[%v].Write.err[%v]", key, err)
 	}
@@ -163,58 +168,60 @@ func Compress(key string, src []byte, compressMode byte) (ret []byte, err error)
 }
 
 // Decompress .
-func Decompress(key string, src []byte) (header *TagCCHeaderInfo, ret []byte, err error) {
+func Decompress(key string, src []byte, compressMode byte) (header *TagCCHeaderInfo, ret []byte, err error) {
 	if src == nil {
 		return nil, nil, fmt.Errorf("Decompress[%v].src.nil", key)
 	}
 
+	var srcBody = src
+	var x, y int
+	var realCompressMode = compressMode
 	a := strings.Split(key, ".")
-	if len(a) < 2 {
-		return nil, nil, fmt.Errorf("Decompress[%v].Split less", key)
-	}
-	x := len(a[0])
-	y := len(a[1])
+	if len(a) == 2 {
+		//return nil, nil, fmt.Errorf("Decompress[%v].Split less", key)
+		x = len(a[0])
+		y = len(a[1])
 
-	if x < 0 || y < 0 {
-		return nil, nil, fmt.Errorf("Decompress[%v].length less", key)
-	}
-
-	// if the header format isn't correct, we ignore it
-	header, err = getHeader(src)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if header == nil {
-		return nil, nil, fmt.Errorf("Decompress[%v].header.nil", key)
-	}
-
-	srcBody := src[binary.Size(header):]
-
-	total := len(srcBody)
-	if total > 848 {
-		total = 848
-	}
-
-	m, n := 0, 0
-	for i := 0; i < total/2; i++ {
-		srcBody[i*2] ^= a[0][m]
-		srcBody[i*2+1] ^= a[1][n]
-		if m < (x - 1) {
-			m++
-		} else {
-			m = 0
+		if x < 0 || y < 0 {
+			return nil, nil, fmt.Errorf("Decompress[%v].length less", key)
 		}
-		if n < (y - 1) {
-			n++
-		} else {
-			n = 0
+
+		// if the header format isn't correct, we ignore it
+		header, err = getHeader(src)
+		if err != nil {
+			return nil, nil, err
 		}
+
+		if header == nil {
+			return nil, nil, fmt.Errorf("Decompress[%v].header.nil", key)
+		}
+
+		srcBody = src[binary.Size(header):]
+
+		total := len(srcBody)
+		if total > 848 {
+			total = 848
+		}
+		m, n := 0, 0
+		for i := 0; i < total/2; i++ {
+			srcBody[i*2] ^= a[0][m]
+			srcBody[i*2+1] ^= a[1][n]
+			if m < (x - 1) {
+				m++
+			} else {
+				m = 0
+			}
+			if n < (y - 1) {
+				n++
+			} else {
+				n = 0
+			}
+		}
+		realCompressMode = header.CompressMode[0]
 	}
 
 	var dst []byte
-	compressMode := header.CompressMode[:]
-	switch compressMode[0] {
+	switch realCompressMode {
 	case GZip:
 		dst, err = DefaultGzip.Decompress(srcBody)
 		if err != nil {
@@ -292,12 +299,12 @@ func CompressFile(filePath string, key string, compressMode int, bOverWrite bool
 }
 
 // DecompressFile .
-func DecompressFile(filePath string, key string, bOverWrite bool) (dlen int64, err error) {
+func DecompressFile(filePath string, key string, compressMode int, bOverWrite bool) (dlen int64, err error) {
 	src, err := ccutility.ReadBinary(filePath)
 	if err != nil {
 		return 0, fmt.Errorf("DecompressFile[%v].ReadBinary.err[%v]", filePath, err)
 	}
-	_, dst, err := Decompress(key, src)
+	_, dst, err := Decompress(key, src, byte(compressMode))
 	if err != nil {
 		return 0, fmt.Errorf("DecompressFile[%v].Decompress.err[%v]", filePath, err)
 	}
@@ -353,7 +360,7 @@ func CompressFolders(folders string, ext string, key string, compressMode int, b
 }
 
 // DecompressFolders .
-func DecompressFolders(folders string, ext string, key string, bOverWrite bool, iWorkerNum int) (successed int64, err error) {
+func DecompressFolders(folders string, ext string, key string, compressMode int, bOverWrite bool, iWorkerNum int) (successed int64, err error) {
 	var allFile []string
 	allFile, err = ccutility.GetAllFileByExt(folders, ext, allFile)
 	if err != nil {
@@ -378,19 +385,19 @@ func DecompressFolders(folders string, ext string, key string, bOverWrite bool, 
 
 	for i := 0; i < iWorkerNum; i++ {
 		wg.Add(1)
-		go func(ch <-chan int, wg *sync.WaitGroup, i int, t int, p int, f []string, k string, w bool) {
+		go func(ch <-chan int, wg *sync.WaitGroup, i int, t int, p int, f []string, k string, m int, w bool) {
 			defer wg.Done()
 			for idx := i * p; idx < (i+1)*p; idx++ {
 				if idx >= t {
 					break
 				}
-				if _, err = DecompressFile(f[idx], k, w); err == nil {
+				if _, err = DecompressFile(f[idx], k, m, w); err == nil {
 					lock.Lock()
 					successed++
 					lock.Unlock()
 				}
 			}
-		}(ch, wg, i, total, pagePerCPU, allFile, key, bOverWrite)
+		}(ch, wg, i, total, pagePerCPU, allFile, key, compressMode, bOverWrite)
 	}
 	wg.Wait()
 	return successed, err
