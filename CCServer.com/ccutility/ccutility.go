@@ -89,7 +89,7 @@ func WorkerTimer(d time.Duration, f func()) {
 }
 
 // ReadBinary .
-func ReadBinary(filePath string) (dst []byte, err error) {
+func ReadBinary(filePath string) ([]byte, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("ReadBinary[%v].Open.err[%v]", filePath, err)
@@ -112,12 +112,12 @@ func ReadBinary(filePath string) (dst []byte, err error) {
 }
 
 // WriteBinary .
-func WriteBinary(filePath string, src []byte) (dlen int64, err error) {
+func WriteBinary(filePath string, src []byte) (int64, error) {
 	path := strings.Split(filePath, "/")
 	dirs := strings.Replace(strings.Trim(fmt.Sprint(path[:len(path)-1]), "[]"), " ", "/", -1) + "/"
 	name := path[len(path)-1]
 
-	err = os.MkdirAll(dirs, os.ModePerm)
+	err := os.MkdirAll(dirs, os.ModePerm)
 	if err != nil {
 		log.Printf("WriteBinary.MkdirAll[%v].err[%v]", dirs, err)
 		return 0, fmt.Errorf("WriteBinary.MkdirAll[%v].err[%v]", dirs, err)
@@ -129,6 +129,7 @@ func WriteBinary(filePath string, src []byte) (dlen int64, err error) {
 		return 0, fmt.Errorf("WriteBinary.Create[%v].err[%v]", dirs+name, err)
 	}
 
+	var dlen int64
 	dlen, err = io.Copy(fs, bytes.NewReader(src))
 	if err != nil {
 		log.Printf("WriteBinary.Copy[%v].err[%v]", dirs+name, err)
