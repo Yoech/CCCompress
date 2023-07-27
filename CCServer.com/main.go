@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	iConvert int
+	bConvert bool
 	iQuality int
 	sSrc     string
 	sDst     string
@@ -30,7 +30,7 @@ var (
 )
 
 func init() {
-	flag.IntVar(&iConvert, "convert", ccconvert.Png2Jpg, "Convert [1,2](png2jpg,jpg2jpg) to jpg default:1")
+	flag.BoolVar(&bConvert, "convert", false, "Convert PNG/JPG/JPEG to JPG with custom image quality  default:false")
 	flag.IntVar(&iQuality, "q", 80, "Convert image with given quality [1,100] default:80")
 	flag.StringVar(&sSrc, "src", "", "source images path")
 	flag.StringVar(&sDst, "dst", "", "dest images path")
@@ -73,8 +73,8 @@ func main() {
 
 	s := time.Now()
 
-	// Convert PNG/JPG to JPG with quility
-	if iConvert == ccconvert.Png2Jpg || iConvert == ccconvert.Jpg2Jpg {
+	// Convert PNG/JPG/JPEG to JPG with custom image quality
+	if bConvert {
 		if iQuality < 1 || iQuality > 100 {
 			useAge()
 			return
@@ -85,19 +85,22 @@ func main() {
 			return
 		}
 
-		err = ccconvert.Convert(sSrc, sDst, iQuality, nil, func(file *os.File) (image.Image, error) {
-			switch iConvert {
-			case ccconvert.Png2Jpg:
+		ext := ""
+
+		err = ccconvert.Convert(sSrc, sDst, nil, func(file *os.File, _ext string) (image.Image, error) {
+			ext = _ext
+			switch ext {
+			case "image/png":
 				return png.Decode(file)
-			case ccconvert.Jpg2Jpg:
+			case "image/jpeg":
 				return jpeg.Decode(file)
 			default:
 				return nil, nil
 			}
 		}, func(file *os.File, rgba *image.RGBA, options *jpeg.Options) error {
-			switch iConvert {
-			case ccconvert.Png2Jpg,
-				ccconvert.Jpg2Jpg:
+			switch ext {
+			case "image/png", "image/jpeg":
+				options.Quality = iQuality
 				return jpeg.Encode(file, rgba, options)
 			}
 			return nil

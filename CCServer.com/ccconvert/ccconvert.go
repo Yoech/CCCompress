@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/draw"
 	"image/jpeg"
+	"net/http"
 	"os"
 )
 
@@ -15,7 +16,7 @@ const (
 	Jpg2Jpg            = 2
 )
 
-func readRaw(src string, decode func(file *os.File) (image.Image, error)) (image.Image, error) {
+func readRaw(src string, decode func(file *os.File, ext string) (image.Image, error)) (image.Image, error) {
 	f, err := os.Open(src)
 	if err != nil {
 		fmt.Println(err)
@@ -23,8 +24,19 @@ func readRaw(src string, decode func(file *os.File) (image.Image, error)) (image
 	}
 	defer f.Close()
 
+	buff := make([]byte, 512)
+	_, err = f.Read(buff)
+	if err != nil {
+		return nil, err
+	}
+
+	// seek to begin
+	// Cool.Cat
+	f.Seek(0, 0)
+
 	var img image.Image
-	img, err = decode(f)
+	ext := http.DetectContentType(buff)
+	img, err = decode(f, ext)
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
@@ -32,7 +44,7 @@ func readRaw(src string, decode func(file *os.File) (image.Image, error)) (image
 	return img, nil
 }
 
-func Convert(src, dst string, quality int, bgColor color.Color, decode func(file *os.File) (image.Image, error), encode func(file *os.File, rgba *image.RGBA, options *jpeg.Options) error) error {
+func Convert(src, dst string, bgColor color.Color, decode func(file *os.File, ext string) (image.Image, error), encode func(file *os.File, rgba *image.RGBA, options *jpeg.Options) error) error {
 	img, err := readRaw(src, decode)
 	if img == nil {
 		return err
@@ -59,5 +71,5 @@ func Convert(src, dst string, quality int, bgColor color.Color, decode func(file
 	}
 
 	// Encode to dest image format
-	return encode(out, jpg, &jpeg.Options{Quality: quality})
+	return encode(out, jpg, &jpeg.Options{Quality: 80})
 }
