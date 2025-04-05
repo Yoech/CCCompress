@@ -1,16 +1,24 @@
 package main
 
 import (
-	"CCServer.com/cccompress"
-	"CCServer.com/ccconvert"
+	"bytes"
+	"encoding/binary"
 	"flag"
 	"fmt"
+	"hash/crc32"
 	"image"
+	"image/color"
+	"image/color/palette"
+	"image/draw"
 	"image/jpeg"
 	"image/png"
 	"log"
 	"os"
+	"sort"
 	"time"
+
+	"CCServer.com/cccompress"
+	"CCServer.com/ccconvert"
 )
 
 var (
@@ -52,9 +60,105 @@ func useAge() {
 	cmdStr := "\n*****************************************\n"
 	cmdStr += "Usage:\n"
 	cmdStr += "*****************************************\n"
-	log.Printf(cmdStr)
+	log.Printf("%s", cmdStr)
 
 	flag.PrintDefaults()
+}
+
+func convertTo8Bit3(img image.Image) *image.Paletted {
+	bounds := img.Bounds()
+	// 创建一个包含透明色的256色调色板
+	plt := make(color.Palette, 0, 256)
+	plt = append(plt, color.Transparent) // 首先添加透明色
+
+	// 添加其他颜色，确保总数不超过256
+	for _, c := range palette.Plan9 {
+		if len(plt) >= 256 {
+			break
+		}
+		plt = append(plt, c)
+	}
+
+	paletted := image.NewPaletted(bounds, plt)
+	// draw.Draw(paletted, bounds, img, bounds.Min, draw.Src)
+	draw.FloydSteinberg.Draw(paletted, bounds, img, image.Point{})
+	return paletted
+}
+
+func convertTo8Bit(img image.Image) *image.Paletted {
+	bounds := img.Bounds()
+
+	// 统计图像中的颜色分布
+	colorCount := make(map[color.Color]int)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			c := img.At(x, y)
+			colorCount[c]++
+		}
+	}
+
+	// 将颜色按使用频率排序
+	type colorFrequency struct {
+		color     color.Color
+		frequency int
+	}
+	var sortedColors []colorFrequency
+	for c, freq := range colorCount {
+		sortedColors = append(sortedColors, colorFrequency{c, freq})
+	}
+
+	// 按频率从高到低排序
+	sort.Slice(sortedColors, func(i, j int) bool {
+		return sortedColors[i].frequency > sortedColors[j].frequency
+	})
+
+	// 创建调色板，最多包含 256 种颜色
+	palette := make(color.Palette, 0, 256)
+	palette = append(palette, color.Transparent) // 确保透明色优先
+	for _, cf := range sortedColors {
+		if len(palette) >= 256 {
+			break
+		}
+		palette = append(palette, cf.color)
+	}
+
+	// 创建 Paletted 图像
+	paletted := image.NewPaletted(bounds, palette)
+	draw.FloydSteinberg.Draw(paletted, bounds, img, image.Point{})
+
+	return paletted
+}
+
+
+func modifyDPI(pngData []byte, dpi int) ([]byte, error) {
+	// 将 DPI 转换为每米像素数 (1 英寸 = 0.0254 米)
+	ppm := uint32(float64(dpi) / 0.0254)
+
+	// 创建 pHYs 块数据
+	physData := make([]byte, 9)
+	binary.BigEndian.PutUint32(physData[0:4], ppm) // 水平像素密度
+	binary.BigEndian.PutUint32(physData[4:8], ppm) // 垂直像素密度
+	physData[8] = 1                                // 单位：每米像素数
+
+	// 计算 CRC 校验值
+	crc := crc32.Checksum(append([]byte("pHYs"), physData...), crc32.MakeTable(crc32.IEEE))
+
+	// 构造 pHYs 块
+	var physChunk bytes.Buffer
+	binary.Write(&physChunk, binary.BigEndian, uint32(len(physData))) // 块长度
+	physChunk.WriteString("pHYs")                                     // 块类型
+	physChunk.Write(physData)                                         // 块数据
+	binary.Write(&physChunk, binary.BigEndian, crc)                   // CRC 校验值
+
+	// 找到第一个 IDAT 块的位置
+	idatIndex := bytes.Index(pngData, []byte("IDAT")) - 4
+	if idatIndex < 0 {
+		return nil, fmt.Errorf("未找到 IDAT 块")
+	}
+
+	// 将 pHYs 块插入到 IDAT 块之前
+	newData := append(pngData[:idatIndex], append(physChunk.Bytes(), pngData[idatIndex:]...)...)
+	return newData, nil
 }
 
 func main() {
@@ -99,7 +203,52 @@ func main() {
 			}
 		}, func(file *os.File, rgba *image.RGBA, options *jpeg.Options) error {
 			switch ext {
-			case "image/png", "image/jpeg":
+			case "image/png":
+				palettedImg := convertTo8Bit(rgba)
+
+				enc := &png.Encoder{
+					CompressionLevel: png.BestCompression,
+				}
+
+				// return enc.Encode(file, palettedImg)
+
+				var buf bytes.Buffer
+				// err = png.Encode(&buf, palettedImg)
+				err = enc.Encode(&buf, palettedImg)
+				if err != nil {
+					return err
+				}
+
+				modifiedData, err := modifyDPI(buf.Bytes(), 72)
+				if err != nil {
+					return err
+				}
+				_, err = file.Write(modifiedData)
+				return err
+
+				// // 转换为8位调色板图像
+				// bounds := rgba.Bounds()
+
+				// // 创建一个包含透明色的256色调色板
+				// plt := make(color.Palette, 0, 256)
+				// plt = append(plt, color.Transparent) // 首先添加透明色
+
+				// // 添加其他颜色，确保总数不超过256
+				// for _, c := range palette.Plan9 {
+				// 	if len(plt) >= 256 {
+				// 		break
+				// 	}
+				// 	plt = append(plt, c)
+				// }
+
+				// paletted := image.NewPaletted(bounds, plt) // Plan9 是一个256色调色板
+				// draw.FloydSteinberg.Draw(paletted, bounds, rgba, image.Point{})
+
+				// enc := &png.Encoder{
+				// 	CompressionLevel: png.BestCompression,
+				// }
+				// return enc.Encode(file, paletted)
+			case "image/jpeg":
 				options.Quality = iQuality
 				return jpeg.Encode(file, rgba, options)
 			}
@@ -134,5 +283,4 @@ func main() {
 Finished:
 	cost := time.Now().Unix() - s.Unix()
 	log.Printf("Total[%v].finished!...cost[%v s].err[%v]", total, cost, err)
-	return
 }
