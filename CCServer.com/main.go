@@ -65,7 +65,7 @@ func useAge() {
 	flag.PrintDefaults()
 }
 
-func convertTo8Bit3(img image.Image) *image.Paletted {
+func convertTo8Bit(img image.Image) *image.Paletted {
 	bounds := img.Bounds()
 	// 创建一个包含透明色的256色调色板
 	plt := make(color.Palette, 0, 256)
@@ -85,7 +85,7 @@ func convertTo8Bit3(img image.Image) *image.Paletted {
 	return paletted
 }
 
-func convertTo8Bit(img image.Image) *image.Paletted {
+func convertTo8Bit2(img image.Image) *image.Paletted {
 	bounds := img.Bounds()
 
 	// 统计图像中的颜色分布
@@ -129,6 +129,66 @@ func convertTo8Bit(img image.Image) *image.Paletted {
 	return paletted
 }
 
+func convertTo8Bit3(img image.Image) *image.Paletted {
+	// 使用中值切割算法生成调色板
+	palette := ccconvert.MedianCut(img, 256)
+
+	// 创建 Paletted 图像
+	bounds := img.Bounds()
+	paletted := image.NewPaletted(bounds, palette)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			paletted.Set(x, y, img.At(x, y))
+		}
+	}
+	draw.FloydSteinberg.Draw(paletted, bounds, img, image.Point{})
+	return paletted
+}
+
+func convertTo8Bit4(img image.Image) *image.Paletted {
+	bounds := img.Bounds()
+
+	// 1. 保留最鲜艳的颜色
+	colorMap := make(map[color.Color]int)
+	maxR, maxG, maxB := 0, 0, 0
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			c := img.At(x, y)
+			r, g, b, _ := c.RGBA()
+
+			// 记录最高饱和度的颜色
+			if r > uint32(maxR) {
+				maxR = int(r)
+			}
+			if g > uint32(maxG) {
+				maxG = int(g)
+			}
+			if b > uint32(maxB) {
+				maxB = int(b)
+			}
+
+			colorMap[c]++
+		}
+	}
+
+	// 2. 创建包含鲜艳色彩的调色板
+	plt := make(color.Palette, 0, 256)
+	plt = append(plt, color.Transparent)
+
+	// 3. 添加饱和度最高的颜色
+	plt = append(plt, color.RGBA{uint8(maxR >> 8), uint8(maxG >> 8), uint8(maxB >> 8), 255})
+
+	// 4. 使用改进的中值切割填充剩余调色板
+	remainingColors := ccconvert.MedianCut(img, 254) // 预留了2个位置
+	plt = append(plt, remainingColors...)
+
+	// 5. 使用误差扩散保持细节
+	paletted := image.NewPaletted(bounds, plt)
+	draw.FloydSteinberg.Draw(paletted, bounds, img, image.Point{})
+
+	return paletted
+}
 
 func modifyDPI(pngData []byte, dpi int) ([]byte, error) {
 	// 将 DPI 转换为每米像素数 (1 英寸 = 0.0254 米)
@@ -204,6 +264,17 @@ func main() {
 		}, func(file *os.File, rgba *image.RGBA, options *jpeg.Options) error {
 			switch ext {
 			case "image/png":
+				// 获取图像的基本信息
+				bounds := rgba.Bounds()
+				width, height := bounds.Dx(), bounds.Dy()
+				colorModel := rgba.ColorModel()
+
+				fmt.Printf("宽度: %d\n", width)
+				fmt.Printf("高度: %d\n", height)
+				fmt.Printf("颜色模型: %v\n", colorModel)
+				fmt.Printf("颜色数: %d\n", len(palette.Plan9))
+
+				// 转8bit位深
 				palettedImg := convertTo8Bit(rgba)
 
 				enc := &png.Encoder{
@@ -256,6 +327,9 @@ func main() {
 		})
 		if err != nil {
 			fmt.Println(err)
+		}
+		if ext == "image/png" {
+			ccconvert.RemoveMetaData(sDst)
 		}
 		goto Finished
 	}
